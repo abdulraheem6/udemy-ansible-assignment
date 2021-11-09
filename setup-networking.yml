@@ -50,7 +50,7 @@
    tasks:
      - name: example ec2 group
        amazon.aws.ec2_group:
-          name: example
+          name: "{{ security_group }}"
           description: an example EC2 group
           vpc_id: 12345
           region: eu-west-1
