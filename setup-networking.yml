@@ -1,45 +1,145 @@
-- name: Set up networking
-  hosts: localhost
-  gather_facts: False
-  tasks:
-    - name: Allow HTTP traffic
-      gce_net:
-        fwname: all-http
-        name: default
-        allowed: tcp:80
-        project_id: "{{ project_id }}"
-        credentials_file: "{{ credentials_file }}"
-        service_account_email: "{{ service_account_email }}"
+# - name: Set up networking
+#   hosts: localhost
+#   gather_facts: False
+#   tasks:
+#     - name: Allow HTTP traffic
+#       gce_net:
+#         fwname: all-http
+#         name: default
+#         allowed: tcp:80
+#         project_id: "{{ project_id }}"
+#         credentials_file: "{{ credentials_file }}"
+#         service_account_email: "{{ service_account_email }}"
 
-    - name: Allow HTTP traffic
-      gce_net:
-        fwname: all-database
-        name: default
-        allowed: tcp:3306
-        project_id: "{{ project_id }}"
-        credentials_file: "{{ credentials_file }}"
-        service_account_email: "{{ service_account_email }}"
+#     - name: Allow HTTP traffic
+#       gce_net:
+#         fwname: all-database
+#         name: default
+#         allowed: tcp:3306
+#         project_id: "{{ project_id }}"
+#         credentials_file: "{{ credentials_file }}"
+#         service_account_email: "{{ service_account_email }}"
 
-    - name: Create the load-balancer and add members
-      gce_lb:
-        name: lb1
-        region: "{{ region }}"
-        members: "{{ lb_members }}"
-        project_id: "{{ project_id }}"
-        credentials_file: "{{ credentials_file }}"
-        service_account_email: "{{ service_account_email }}"
-      register: lb_result
+#     - name: Create the load-balancer and add members
+#       gce_lb:
+#         name: lb1
+#         region: "{{ region }}"
+#         members: "{{ lb_members }}"
+#         project_id: "{{ project_id }}"
+#         credentials_file: "{{ credentials_file }}"
+#         service_account_email: "{{ service_account_email }}"
+#       register: lb_result
 
-    - name: Load balancer result
-      debug:
-        msg: "{{ lb_result }}"
+#     - name: Load balancer result
+#       debug:
+#         msg: "{{ lb_result }}"
 
+#     - name: Send notification email
+#       mail:
+#         host: smtp.gmail.com
+#         port: 465
+#         username: mmumshad@gmail.com
+#         password: "{{ g_password }}"
+#         to: Mumshad Mannambeth <mmumshad@gmail.com>
+#         subject: Ansible-report
+#         body: 'Go to http://{{ lb_result.external_ip }} to access your web application.'
+
+ - name: Set up networking
+   hosts: localhost
+   gather_facts: False
+   tasks:
+     - name: example ec2 group
+       amazon.aws.ec2_group:
+          name: example
+          description: an example EC2 group
+          vpc_id: 12345
+          region: eu-west-1
+          rules:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 10.0.0.0/8
+          - proto: tcp
+            from_port: 443
+            to_port: 443
+            # this should only be needed for EC2 Classic security group rules
+            # because in a VPC an ELB will use a user-account security group
+            group_id: amazon-elb/sg-87654321/amazon-elb-sg
+          - proto: tcp
+            from_port: 3306
+            to_port: 3306
+            group_id: 123412341234/sg-87654321/exact-name-of-sg
+          - proto: udp
+            from_port: 10050
+            to_port: 10050
+            cidr_ip: 10.0.0.0/8
+          - proto: udp
+            from_port: 10051
+            to_port: 10051
+            group_id: sg-12345678
+          - proto: icmp
+            from_port: 8 # icmp type, -1 = any type
+            to_port:  -1 # icmp subtype, -1 = any subtype
+            cidr_ip: 10.0.0.0/8
+          - proto: all
+            # the containing group name may be specified here
+            group_name: example
+          - proto: all
+            # in the 'proto' attribute, if you specify -1, all, or a protocol number other than tcp, udp, icmp, or 58 (ICMPv6),
+            # traffic on all ports is allowed, regardless of any ports you specify
+            from_port: 10050 # this value is ignored
+            to_port: 10050 # this value is ignored
+            cidr_ip: 10.0.0.0/8
+
+        rules_egress:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+            cidr_ipv6: 64:ff9b::/96
+            group_name: example-other
+            # description to use if example-other needs to be created
+            group_desc: other example EC2 group
+    
+    
+      
+    - amazon.aws.ec2_elb_lb:
+        name: "test-please-delete"
+        state: present
+        instance_ids: '{{ ec2.instance_ids }}'
+        zones:
+          - us-east-1a
+          - us-east-1d
+        listeners:
+          - protocol: http # options are http, https, ssl, tcp
+            load_balancer_port: 80
+            instance_port: 80
+            proxy_protocol: True
+          - protocol: https
+            load_balancer_port: 443
+            instance_protocol: http # optional, defaults to value of protocol setting
+            instance_port: 80
+            # ssl certificate required for https or ssl
+            ssl_certificate_id: "arn:aws:iam::123456789012:server-certificate/company/servercerts/ProdServerCert"
+             access_logs:
+        interval: 5 # minutes (defaults to 60)
+        s3_location: "my-bucket" # This value is required if access_logs is set
+        s3_prefix: "logs"
+        register: lb_result
+      
+      
     - name: Send notification email
       mail:
         host: smtp.gmail.com
         port: 465
-        username: mmumshad@gmail.com
+        username: moise1445@gmail.com
         password: "{{ g_password }}"
-        to: Mumshad Mannambeth <mmumshad@gmail.com>
+        to: moise1445@gmail.com
         subject: Ansible-report
         body: 'Go to http://{{ lb_result.external_ip }} to access your web application.'
+
+    
